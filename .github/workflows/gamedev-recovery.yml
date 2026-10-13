@@ -2,54 +2,80 @@ name: GameDev source recovery
 on:
   push:
     branches: [main]
-    paths: ['.github/workflows/gamedev-recovery.yml', '_gamedev_delivery/recover.py']
+    paths: ['.github/workflows/gamedev-recovery.yml']
 permissions:
-  contents: read
+  contents: write
+concurrency:
+  group: gamedev-source-recovery
+  cancel-in-progress: false
 jobs:
-  verify:
+  restore:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
           persist-credentials: false
-      - name: Diagnose transfer without executing imported code
+      - name: Restore only complete members from the verified prefix
         run: |
           python3 - <<'PY'
-          import base64, hashlib, json, lzma, pathlib, tarfile, io
-          root=pathlib.Path('_gamedev_delivery')
-          manifest=json.loads((root/'manifest.json').read_text())
-          output=pathlib.Path('recovery'); output.mkdir()
-          decoder=lzma.LZMADecompressor(); raw=bytearray(); rows=[]
-          for part in manifest['parts']:
-              text=(root/part['name']).read_text().strip()
-              row={'part':part['name'],'encoded_length':len(text),'expected_sha256':part['sha256']}
-              try:
-                  data=base64.b64decode(text,validate=True)
-                  row['sha256']=hashlib.sha256(data).hexdigest()
-                  row['valid']=row['sha256']==part['sha256']
-                  if not row['valid']: break
-                  raw.extend(decoder.decompress(data,max_length=5000000-len(raw)))
-              except Exception as exc:
-                  row['error']=str(exc)
-              finally:
-                  rows.append(row); print(json.dumps(row))
-              if 'error' in row: break
-          (output/'transfer-report.json').write_text(json.dumps(rows,indent=2))
-          (output/'partial-source.tar').write_bytes(raw)
-          print('Verified decompressed prefix:',len(raw),'bytes')
-          if (root/'recover.py').exists():
-              import subprocess
-              subprocess.run(['python3',str(root/'recover.py')],check=True)
+          import base64,hashlib,json,lzma,pathlib,tarfile,io,ast
+          root=pathlib.Path.cwd(); delivery=root/'_gamedev_delivery'
+          manifest=json.loads((delivery/'manifest.json').read_text())
+          assert manifest['archive_sha256']=='a6dabf83ed30e63a5b070ae379b35493a6d4f3cf542a7851d1f8f9f2a1379fc5'
+          decoder=lzma.LZMADecompressor();raw=bytearray()
+          for i,part in enumerate(manifest['parts'][:15]):
+              assert part['name']==f'part-{i:02}.b64'
+              data=base64.b64decode((delivery/part['name']).read_text(),validate=True)
+              assert len(data)==8192 and hashlib.sha256(data).hexdigest()==part['sha256']
+              raw.extend(decoder.decompress(data,max_length=5000000-len(raw)))
+          assert len(raw)==654448
+          assert hashlib.sha256(raw).hexdigest()=='bd46ab4e8bfb1a36223d7c170aff918f7db77d5ce1c4f9acf09c6579889d40a0'
+          archive=tarfile.open(fileobj=io.BytesIO(raw),mode='r:')
+          prepared={};digests={}
+          try:
+              for member in archive:
+                  name=pathlib.PurePosixPath(member.name)
+                  assert not name.is_absolute() and name.parts[0]=='gamedev-ai-bench' and '..' not in name.parts
+                  assert member.isfile() and not member.issym() and not member.islnk()
+                  assert not any(x in name.parts for x in ('.env','.git','var'))
+                  body=archive.extractfile(member).read()
+                  assert len(body)==member.size
+                  assert member.name not in prepared
+                  if name.suffix=='.py':ast.parse(body.decode('utf-8'),filename=member.name)
+                  target=root/member.name
+                  assert not any(p.is_symlink() for p in (target,*target.parents))
+                  if target.exists():assert target.read_bytes()==body,'Refusing changed source overwrite: '+member.name
+                  prepared[member.name]=body
+                  digests[str(pathlib.PurePosixPath(*name.parts[1:]))]=hashlib.sha256(body).hexdigest()
+          except tarfile.ReadError:
+              pass
+          assert len(prepared)==102,'Unexpected number of complete source files'
+          for name,body in prepared.items():
+              target=root/name;target.parent.mkdir(parents=True,exist_ok=True)
+              if not target.exists():target.write_bytes(body)
+          note={'kind':'verified-prefix-recovery','original_archive_complete':False,'verified_parts':15,'complete_files_recovered':102,'unrecoverable_original_parts':['part-15.b64','part-16.b64'],'original_hashes_preserved':True,'files':digests,'notice':'The original archive tail is corrupt. Only complete files from checksum-matching parts were recovered. New tests and deployment files are maintained as separate revision commits. Inherited evidence is not a claim of testing this revision.'}
+          (root/'gamedev-ai-bench/RECOVERY_MANIFEST.json').write_text(json.dumps(note,indent=2)+'\n')
+          print('Restored 102 complete files. Original transfer manifest unchanged; no incomplete member imported.')
           PY
-      - name: Preserve exact transferred data and diagnostics
-        if: always()
+      - name: Publish recovered source with ephemeral authentication
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -- gamedev-ai-bench
+          if ! git diff --cached --quiet; then
+            git commit -m 'Restore GameDev application, API, workers, migrations, assets and documentation'
+            header=$(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w0)
+            GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=http.extraheader GIT_CONFIG_VALUE_0="AUTHORIZATION: basic $header" git push "https://github.com/$REPOSITORY.git" HEAD:main
+          fi
+      - name: Preserve recovered source
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
-          name: gamedev-source-recovery
-          path: |
-            _gamedev_delivery/*.b64
-            _gamedev_delivery/manifest.json
-            recovery/
+          name: gamedev-recovered-source
+          path: gamedev-ai-bench/
+          include-hidden-files: true
           retention-days: 7
           if-no-files-found: error
