@@ -1,0 +1,69 @@
+name: GameDev AI Bench source import
+on:
+  push:
+    branches: [main]
+    paths: ['_gamedev_delivery/source.tar.xz.b64']
+permissions:
+  contents: write
+concurrency:
+  group: gamedev-source-import
+  cancel-in-progress: false
+jobs:
+  import:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - name: Verify and extract only the new project directory
+        run: |
+          python3 - <<'PY'
+          import base64,hashlib,io,json,lzma,pathlib,tarfile
+          root=pathlib.Path.cwd()
+          manifest=json.loads((root/'_gamedev_delivery/manifest.json').read_text())
+          data=base64.b64decode((root/'_gamedev_delivery/source.tar.xz.b64').read_text(),validate=True)
+          assert hashlib.sha256(data).hexdigest()==manifest['archive_sha256'],'Archive checksum mismatch'
+          archive=tarfile.open(fileobj=io.BytesIO(data),mode='r:xz')
+          members=archive.getmembers()
+          assert len(members)<=300 and sum(x.size for x in members)<5000000
+          for member in members:
+              path=pathlib.PurePosixPath(member.name)
+              assert path.parts[0]=='gamedev-ai-bench' and '..' not in path.parts
+              assert member.isfile() and not member.issym() and not member.islnk()
+              assert '.env' not in path.parts and 'var' not in path.parts
+              assert not (root/member.name).exists(),'Refusing to overwrite existing project files'
+          for member in members:
+              target=root/member.name
+              target.parent.mkdir(parents=True,exist_ok=True)
+              target.write_bytes(archive.extractfile(member).read())
+          for name,digest in manifest['files'].items():
+              assert hashlib.sha256((root/'gamedev-ai-bench'/name).read_bytes()).hexdigest()==digest,name
+          print('Verified',len(members),'source files; existing repository files preserved.')
+          PY
+      - name: Commit verified source without persisting authentication
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -- gamedev-ai-bench
+          git commit -m 'Publish verified GameDev AI Bench source, tests and documentation'
+          header=$(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w0)
+          git -c http.extraheader="AUTHORIZATION: basic $header" push "https://github.com/$REPOSITORY.git" HEAD:main
+      - name: Install runtime and test dependencies
+        working-directory: gamedev-ai-bench
+        run: python3 -m pip install -r requirements-dev.txt
+      - name: Run unit and API tests, validate, and build
+        working-directory: gamedev-ai-bench
+        run: |
+          python3 -m pytest -q
+          python3 scripts/validate.py
+          python3 scripts/build.py
+      - name: Run actual HTTP browser checks
+        working-directory: gamedev-ai-bench
+        run: |
+          python3 -m playwright install --with-deps chromium
+          BROWSER_COMPONENT_TESTS=true python3 -m pytest tests/test_components.py -q
+          python3 scripts/e2e.py
