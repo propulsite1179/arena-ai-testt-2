@@ -1,0 +1,76 @@
+name: GameDev dependency and deployment audit
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/gamedev-audit.yml', 'gamedev-ai-bench/requirements*.txt']
+permissions:
+  contents: read
+jobs:
+  dependencies:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: gamedev-ai-bench
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Isolated audit tooling
+        run: |
+          python3 -m venv /tmp/gamedev-audit
+          echo /tmp/gamedev-audit/bin >> "$GITHUB_PATH"
+          /tmp/gamedev-audit/bin/python -m pip install pip-audit==2.9.0 ruff
+          mkdir -p evidence/audit
+          /tmp/gamedev-audit/bin/python -m pip freeze > evidence/audit/tool-versions.txt
+      - name: Critical Python lint
+        run: python -m ruff check --select E9,F63,F7,F82 gamedev apps scripts tests --output-format json --output-file evidence/audit/critical-lint.json
+      - name: Runtime and development dependencies against current PyPI advisories
+        if: always()
+        run: python -m pip_audit -r requirements-dev.txt -r requirements-postgres.txt --format json --output evidence/audit/dependencies.json
+      - name: Preserve audit evidence including failures
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: gamedev-dependency-audit
+          path: gamedev-ai-bench/evidence/audit/
+          retention-days: 14
+          if-no-files-found: error
+  public-deployment:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check the publicly published site without credentials
+        run: |
+          mkdir -p evidence
+          python3 - <<'PY'
+          import json,time,urllib.request
+          origin='https://gamedev-ai-bench.vercel.app'
+          report={'kind':'public-https-deployment-smoke','origin':origin,'authenticated':False,'routes':[],'result':'not_run'}
+          try:
+              for path in ('/en/','/fr/','/build-info.json','/static/catalog.json','/fixtures/orbital/index.html','/static/app.js'):
+                  request=urllib.request.Request(origin+path,headers={'User-Agent':'GameDev-Bench-Deployment-Check/1.0'})
+                  with urllib.request.urlopen(request,timeout=20) as response:
+                      body=response.read(2000000)
+                      assert response.status==200,(path,response.status)
+                      assert response.headers.get('X-Content-Type-Options')=='nosniff'
+                      assert "object-src 'none'" in response.headers.get('Content-Security-Policy','')
+                      if path in ('/en/','/fr/'):
+                          assert b'GameDev' in body and b'gdb-static' in body and b'static-notice' in body
+                      if path=='/build-info.json':
+                          data=json.loads(body)
+                          assert data['dynamic_backend'] is False and data['model_results']==0 and data['public_pages']==88
+                      report['routes'].append({'path':path,'status':response.status,'bytes':len(body)})
+              report['result']='passed'
+          finally:
+              with open('evidence/public-deployment.json','w') as output:json.dump(report,output,indent=2)
+              print(json.dumps(report,indent=2))
+          PY
+      - name: Preserve unauthenticated public check
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: gamedev-public-deployment-check
+          path: evidence/public-deployment.json
+          retention-days: 14
+          if-no-files-found: error
