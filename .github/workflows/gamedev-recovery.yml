@@ -1,0 +1,55 @@
+name: GameDev source recovery
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/gamedev-recovery.yml', '_gamedev_delivery/recover.py']
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Diagnose transfer without executing imported code
+        run: |
+          python3 - <<'PY'
+          import base64, hashlib, json, lzma, pathlib, tarfile, io
+          root=pathlib.Path('_gamedev_delivery')
+          manifest=json.loads((root/'manifest.json').read_text())
+          output=pathlib.Path('recovery'); output.mkdir()
+          decoder=lzma.LZMADecompressor(); raw=bytearray(); rows=[]
+          for part in manifest['parts']:
+              text=(root/part['name']).read_text().strip()
+              row={'part':part['name'],'encoded_length':len(text),'expected_sha256':part['sha256']}
+              try:
+                  data=base64.b64decode(text,validate=True)
+                  row['sha256']=hashlib.sha256(data).hexdigest()
+                  row['valid']=row['sha256']==part['sha256']
+                  if not row['valid']: break
+                  raw.extend(decoder.decompress(data,max_length=5000000-len(raw)))
+              except Exception as exc:
+                  row['error']=str(exc)
+              finally:
+                  rows.append(row); print(json.dumps(row))
+              if 'error' in row: break
+          (output/'transfer-report.json').write_text(json.dumps(rows,indent=2))
+          (output/'partial-source.tar').write_bytes(raw)
+          print('Verified decompressed prefix:',len(raw),'bytes')
+          if (root/'recover.py').exists():
+              import subprocess
+              subprocess.run(['python3',str(root/'recover.py')],check=True)
+          PY
+      - name: Preserve exact transferred data and diagnostics
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: gamedev-source-recovery
+          path: |
+            _gamedev_delivery/*.b64
+            _gamedev_delivery/manifest.json
+            recovery/
+          retention-days: 7
+          if-no-files-found: error
