@@ -1,17 +1,20 @@
-"""Trusted component screenshots. Real HTTP/CSP checks live in e2e.py."""
+"""Real HTTP deployment screenshots; trusted in-memory helper for unit components."""
 from pathlib import Path
 import base64
+import functools
 import json
+import os
 import re
 import shutil
 import sys
 import tempfile
-sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
+import threading
+from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from bs4 import BeautifulSoup
-from fastapi.testclient import TestClient
-from playwright.sync_api import sync_playwright
-from gamedev.web.app import create_app
-from gamedev.config import ROOT, Settings
+from playwright.sync_api import sync_playwright, expect
+from gamedev.config import ROOT
+from scripts.build import build
 
 
 def inline_document(client,path,include_app_script=True):
@@ -40,38 +43,72 @@ def inline_document(client,path,include_app_script=True):
 
 
 def main():
-    output=ROOT/'evidence/ui';output.mkdir(parents=True,exist_ok=True)
-    report={'kind':'trusted-component-screenshots','http_or_csp_test':False,'pages':[]}
-    cases=[(1440,1050,'/en','home-desktop'),(390,844,'/fr','home-mobile'),
-           (768,1024,'/fr','home-tablet'),(1440,1050,'/en/leaderboard','leaderboard-desktop'),
-           (1440,1050,'/en/arena','arena-desktop')]
-    with tempfile.TemporaryDirectory(prefix='gdb-visual-') as temporary:
-        temp=Path(temporary)
-        settings=Settings(data_dir=temp/'data',database_url='sqlite:///'+str(temp/'visual.db'),secret='trusted-local-visual-test-only-'+'x'*48)
-        app=create_app(settings)
+    output = ROOT / 'evidence/ui'
+    output.mkdir(parents=True, exist_ok=True)
+    report = {'kind': 'static-http-screenshots', 'http_or_csp_test': True,
+              'source_commit': os.environ.get('GITHUB_SHA'), 'result': 'not_run', 'pages': []}
+    cases = [(1440, 1050, '/en/', 'home-desktop'),
+             (390, 844, '/fr/', 'home-mobile'),
+             (768, 1024, '/fr/', 'home-tablet'),
+             (1440, 1050, '/en/leaderboard/', 'leaderboard-desktop'),
+             (1440, 1050, '/en/arena/', 'arena-desktop'),
+             (390, 844, '/fr/arena/', 'arena-mobile')]
+    with tempfile.TemporaryDirectory(prefix='gdb-visual-http-') as temporary:
+        destination = build(output=Path(temporary) / 'site')
+        headers = json.loads((ROOT / 'vercel.json').read_text())['headers'][0]['headers']
+        class Handler(SimpleHTTPRequestHandler):
+            def end_headers(self):
+                for header in headers:
+                    self.send_header(header['key'], header['value'])
+                super().end_headers()
+            def log_message(self, *args):
+                pass
+        server = ThreadingHTTPServer(('127.0.0.1', 0),
+                                     functools.partial(Handler, directory=str(destination)))
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        origin = f'http://127.0.0.1:{server.server_port}'
         try:
-            with TestClient(app) as client,sync_playwright() as pw:
-                for width,height,path,name in cases:
-                    # Isolate renderer lifetimes: animated Canvas fixtures must not
-                    # inherit resources from previous screenshot pages.
-                    browser=pw.chromium.launch(executable_path=shutil.which('chromium'),headless=True)
-                    try:
-                        page=browser.new_page(viewport={'width':width,'height':height});errors=[]
-                        page.on('pageerror',lambda error:errors.append(str(error)))
-                        page.set_content(inline_document(client,path),wait_until='load')
-                        page.wait_for_timeout(250)
-                        overflow=page.evaluate('document.documentElement.scrollWidth>innerWidth')
-                        page.screenshot(path=str(output/(name+'.png')),full_page=True)
-                        row={'name':name,'width':width,'overflow':overflow,'page_errors':errors.copy()}
-                        report['pages'].append(row);print(json.dumps(row))
-                        assert not overflow and not errors,row
-                        if name=='home-desktop':
-                            page.locator('.theme-toggle').click()
-                            assert page.locator('html').get_attribute('data-theme')=='light'
-                            page.screenshot(path=str(output/'home-light.png'),full_page=True)
-                    finally:browser.close()
+            with sync_playwright() as pw:
+                browser = pw.chromium.launch(executable_path=shutil.which('chromium'), headless=True)
+                try:
+                    for width, height, route, name in cases:
+                        context = browser.new_context(viewport={'width': width, 'height': height})
+                        try:
+                            page = context.new_page()
+                            errors = []
+                            page.on('pageerror', lambda error: errors.append(str(error)))
+                            response = page.goto(origin + route, wait_until='networkidle')
+                            assert response and response.status == 200
+                            expect(page.locator('h1')).to_be_visible()
+                            if 'arena' in name:
+                                for side in ('a', 'b'):
+                                    frame = page.frame_locator('#game-' + side)
+                                    expect(frame.locator('canvas')).to_be_visible()
+                                    frame.get_by_test_id('start').click()
+                                    expect(frame.get_by_test_id('state')).to_have_text('running')
+                            page.screenshot(path=str(output / (name + '.png')), full_page=True)
+                            row = {'name': name, 'width': width,
+                                   'overflow': page.evaluate('document.documentElement.scrollWidth > innerWidth'),
+                                   'broken_images': page.evaluate('Array.from(document.images).filter(x => !x.complete || x.naturalWidth === 0).length'),
+                                   'page_errors': errors.copy()}
+                            report['pages'].append(row)
+                            print(json.dumps(row), flush=True)
+                            assert not row['overflow'] and not row['broken_images'] and not errors, row
+                            if name == 'home-desktop':
+                                page.locator('.theme-toggle').click()
+                                expect(page.locator('html')).to_have_attribute('data-theme', 'light')
+                                page.screenshot(path=str(output / 'home-light.png'), full_page=True)
+                        finally:
+                            context.close()
+                    report['result'] = 'passed'
+                finally:
+                    browser.close()
         finally:
-            app.state.db.engine.dispose()
-            (output/'visual-checks.json').write_text(json.dumps(report,indent=2)+'\n')
+            server.shutdown()
+            server.server_close()
+            thread.join(timeout=5)
+            (output / 'visual-checks.json').write_text(json.dumps(report, indent=2) + '\n')
 
-if __name__=='__main__':main()
+if __name__ == '__main__':
+    main()
