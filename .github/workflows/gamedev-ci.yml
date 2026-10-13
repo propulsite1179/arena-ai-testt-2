@@ -54,6 +54,8 @@ jobs:
         run: python -m pytest tests/test_components.py -q --junitxml=evidence/ci-components.xml
       - name: Real HTTP browser journeys without policy skips
         run: python scripts/e2e.py
+      - name: Read-only export under real deployment CSP
+        run: python scripts/static_e2e.py
       - name: Visual evidence
         run: python scripts/render_preview.py
       - name: Build read-only public site and portable source

@@ -14,7 +14,7 @@ def source_files(root=ROOT):
     for path in sorted(root.rglob('*')):
         relative=path.relative_to(root)
         if not path.is_file() or path.is_symlink() or any(part in EXCLUDED for part in relative.parts):continue
-        if path.name=='.env' or path.name.startswith('.local-session') or path.suffix in ('.db','.pyc','.log','.b64','.xz','.zip'):continue
+        if path.name in ('.env','SOURCE_MANIFEST.json') or path.name.startswith('.local-session') or path.suffix in ('.db','.pyc','.log','.b64','.xz','.zip'):continue
         # Generated image evidence is provided separately, not required for reproduction.
         if relative.parts[0]=='evidence' and path.suffix in ('.png','.webm'):continue
         yield path
