@@ -2,7 +2,7 @@ name: GameDev AI Bench source import
 on:
   push:
     branches: [main]
-    paths: ['_gamedev_delivery/source.tar.xz.b64']
+    paths: ['_gamedev_delivery/READY']
 permissions:
   contents: write
 concurrency:
@@ -11,37 +11,72 @@ concurrency:
 jobs:
   import:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: gamedev_ci
+          POSTGRES_PASSWORD: ephemeral-ci-only-password
+          POSTGRES_DB: gamedev_ci
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U gamedev_ci -d gamedev_ci"
+          --health-interval 5s --health-timeout 5s --health-retries 10
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
           persist-credentials: false
-      - name: Verify and extract only the new project directory
+      - name: Verify archive and publish only the project directory
         run: |
           python3 - <<'PY'
-          import base64,hashlib,io,json,lzma,pathlib,tarfile
+          import base64,hashlib,io,json,lzma,pathlib,re,tarfile
           root=pathlib.Path.cwd()
-          manifest=json.loads((root/'_gamedev_delivery/manifest.json').read_text())
-          data=base64.b64decode((root/'_gamedev_delivery/source.tar.xz.b64').read_text(),validate=True)
-          assert hashlib.sha256(data).hexdigest()==manifest['archive_sha256'],'Archive checksum mismatch'
-          archive=tarfile.open(fileobj=io.BytesIO(data),mode='r:xz')
+          delivery=root/'_gamedev_delivery'
+          manifest=json.loads((delivery/'manifest.json').read_text())
+          assert manifest['format']=='gamedev-source/1'
+          assert 1<=len(manifest['parts'])<=32
+          chunks=[]
+          for part in manifest['parts']:
+              assert re.fullmatch(r'part-[0-9]{2}\.b64',part['name'])
+              encoded=(delivery/part['name']).read_text()
+              assert len(encoded)<=20000
+              chunk=base64.b64decode(encoded,validate=True)
+              assert hashlib.sha256(chunk).hexdigest()==part['sha256'],part['name']
+              chunks.append(chunk)
+          data=b''.join(chunks)
+          assert len(data)==manifest['archive_bytes'] and len(data)<=300000
+          assert hashlib.sha256(data).hexdigest()==manifest['archive_sha256']
+          decoder=lzma.LZMADecompressor()
+          unpacked=decoder.decompress(data,max_length=5000001)
+          assert decoder.eof and not decoder.unused_data and len(unpacked)<=5000000
+          archive=tarfile.open(fileobj=io.BytesIO(unpacked),mode='r:')
           members=archive.getmembers()
-          assert len(members)<=300 and sum(x.size for x in members)<5000000
+          assert len(members)==manifest['source_files'] and len(members)<=300
+          assert len({member.name for member in members})==len(members)
+          expected=json.loads(archive.extractfile('gamedev-ai-bench/SOURCE_MANIFEST.json').read())
+          assert {member.name for member in members}=={'gamedev-ai-bench/'+name for name in expected}|{'gamedev-ai-bench/SOURCE_MANIFEST.json'}
+          prepared=[]
           for member in members:
               path=pathlib.PurePosixPath(member.name)
-              assert path.parts[0]=='gamedev-ai-bench' and '..' not in path.parts
+              assert path.parts[0]=='gamedev-ai-bench' and '..' not in path.parts and not path.is_absolute()
               assert member.isfile() and not member.issym() and not member.islnk()
-              assert '.env' not in path.parts and 'var' not in path.parts
-              assert not (root/member.name).exists(),'Refusing to overwrite existing project files'
-          for member in members:
+              assert '.env' not in path.parts and 'var' not in path.parts and '.git' not in path.parts
+              content=archive.extractfile(member).read()
+              relative=pathlib.PurePosixPath(*path.parts[1:]).as_posix()
+              if relative!='SOURCE_MANIFEST.json':
+                  assert hashlib.sha256(content).hexdigest()==expected[relative],relative
               target=root/member.name
+              assert not any(parent.is_symlink() for parent in [target,*target.parents])
+              if target.exists():
+                  assert target.is_file() and target.read_bytes()==content,'Refusing to overwrite changed source: '+member.name
+              prepared.append((target,content))
+          for target,content in prepared:
               target.parent.mkdir(parents=True,exist_ok=True)
-              target.write_bytes(archive.extractfile(member).read())
-          for name,digest in manifest['files'].items():
-              assert hashlib.sha256((root/'gamedev-ai-bench'/name).read_bytes()).hexdigest()==digest,name
-          print('Verified',len(members),'source files; existing repository files preserved.')
+              if not target.exists():target.write_bytes(content)
+          print('Verified',len(members),'files. Existing unrelated repository files preserved.')
           PY
-      - name: Commit verified source without persisting authentication
+      - name: Commit verified source with ephemeral authentication
         env:
           GH_TOKEN: ${{ github.token }}
           REPOSITORY: ${{ github.repository }}
@@ -49,21 +84,37 @@ jobs:
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add -- gamedev-ai-bench
-          git commit -m 'Publish verified GameDev AI Bench source, tests and documentation'
-          header=$(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w0)
-          git -c http.extraheader="AUTHORIZATION: basic $header" push "https://github.com/$REPOSITORY.git" HEAD:main
-      - name: Install runtime and test dependencies
+          if ! git diff --cached --quiet; then
+            git commit -m 'Publish GameDev AI Bench source, tests, migrations and documentation'
+            header=$(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w0)
+            GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=http.extraheader GIT_CONFIG_VALUE_0="AUTHORIZATION: basic $header" git push "https://github.com/$REPOSITORY.git" HEAD:main
+          fi
+      - name: Isolated Python environment
+        run: |
+          python3 -m venv /tmp/gamedev-ci
+          echo /tmp/gamedev-ci/bin >> "$GITHUB_PATH"
+      - name: Install dependencies
         working-directory: gamedev-ai-bench
-        run: python3 -m pip install -r requirements-dev.txt
-      - name: Run unit and API tests, validate, and build
+        run: python -m pip install -r requirements-dev.txt -r requirements-postgres.txt
+      - name: Unit, API, migration, backup and export tests
         working-directory: gamedev-ai-bench
         run: |
-          python3 -m pytest -q
-          python3 scripts/validate.py
-          python3 scripts/build.py
-      - name: Run actual HTTP browser checks
+          python -m pytest -q
+          python scripts/validate.py
+          python scripts/build.py
+      - name: Real PostgreSQL migration and eight concurrent leases
         working-directory: gamedev-ai-bench
-        run: |
-          python3 -m playwright install --with-deps chromium
-          BROWSER_COMPONENT_TESTS=true python3 -m pytest tests/test_components.py -q
-          python3 scripts/e2e.py
+        env:
+          POSTGRES_TEST_URL: postgresql+psycopg://gamedev_ci:ephemeral-ci-only-password@127.0.0.1:5432/gamedev_ci
+        run: python scripts/ci_postgres.py
+      - name: Install Chromium
+        working-directory: gamedev-ai-bench
+        run: python -m playwright install --with-deps chromium
+      - name: Chromium component verification
+        working-directory: gamedev-ai-bench
+        env:
+          BROWSER_COMPONENT_TESTS: 'true'
+        run: python -m pytest tests/test_components.py -q
+      - name: Real HTTP browser journeys without policy skips
+        working-directory: gamedev-ai-bench
+        run: python scripts/e2e.py
