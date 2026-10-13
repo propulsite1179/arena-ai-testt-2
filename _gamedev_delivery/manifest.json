@@ -1,0 +1,25 @@
+{
+  "format": "gamedev-source/1",
+  "archive_sha256": "a6dabf83ed30e63a5b070ae379b35493a6d4f3cf542a7851d1f8f9f2a1379fc5",
+  "source_files": 108,
+  "archive_bytes": 131876,
+  "parts": [
+    {"name":"part-00.b64","sha256":"0f24fd1680316b16ba91a7adfd5b5fbcd05794d2ef6dd48031bf2461f9fdefde"},
+    {"name":"part-01.b64","sha256":"9fefe5d0a278f7cb8ef3b02107e2c0b7bbf0f3f42c4853f2be9853a4e1d916da"},
+    {"name":"part-02.b64","sha256":"191f38b12d1c125e5f864c0691c0e1c383ad36585aa136d420c466ffc335adf9"},
+    {"name":"part-03.b64","sha256":"6fcfa3fd96db14ec77f665524caabdbea2e488f2452c3dcd694930ca8918ceb2"},
+    {"name":"part-04.b64","sha256":"fe29bd03b467e4e3a5e468fd9f1ea5f91efcaf2d58a2706ba6e7d7d29dc11885"},
+    {"name":"part-05.b64","sha256":"37dd09206f2e4dd7dfcf5a59da3070b7755883cedd332452d984912704645eae"},
+    {"name":"part-06.b64","sha256":"71f55f1f8bf320a14d8f172617de3bc87d1a3b533d521d0a9bc38887269f80f5"},
+    {"name":"part-07.b64","sha256":"edaee3bd824176c499a7ed7ce059a1eec440f012024fb69dd019a565937d222f"},
+    {"name":"part-08.b64","sha256":"152762b3206e7c5005a6cac96e3ed129ecb378c3a48d29fdd99646c69dadf490"},
+    {"name":"part-09.b64","sha256":"8e0f80bcb195d0573898ade65818e7fa68e4614342344d194a0f1ef1aa6645f4"},
+    {"name":"part-10.b64","sha256":"836e2b5cdbbfc7dd2cc71fcbbc8d64264d9e3ae0a23b905246bb793665a282e4"},
+    {"name":"part-11.b64","sha256":"eaa9188420f6b5e71de9ae815746a7f52a6e395af92700bfdb07d6e7489d4239"},
+    {"name":"part-12.b64","sha256":"66eefab580dbc6e2d5ea2c497cd34a1d7c853029b7e0a1eb285a80cc334a9ed8"},
+    {"name":"part-13.b64","sha256":"52ab42dd99bedd366c76ec58d546495918757a0f8c392561d3a9836ae9cb30eb"},
+    {"name":"part-14.b64","sha256":"98147aa0518d08290fa34ca3f7f6a185765b883a0ec5facae8b5b8ddd93f0bd5"},
+    {"name":"part-15.b64","sha256":"41a29ad8fe27c82966f9e140001f6e325d34d25ee5105bf5f37d627dbe758cf4"},
+    {"name":"part-16.b64","sha256":"e629533f742bca7b98608c5898b77598795466b094b4862192dc6a65337c15ba"}
+  ]
+}
