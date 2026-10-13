@@ -1,0 +1,10 @@
+{
+  "kind": "actual-http-end-to-end",
+  "http_api": "passed",
+  "browser": "skipped_by_browser_administrator_policy",
+  "checks": [
+    "actual HTTP: 9 public routes, protected admin and rejected CSRF-free mutation"
+  ],
+  "live_provider_calls": 0,
+  "limitation": "HTTP API tested; browser navigation blocked. No policy bypass or claim of browser network success."
+}

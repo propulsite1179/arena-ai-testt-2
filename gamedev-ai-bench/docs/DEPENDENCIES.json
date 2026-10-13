@@ -1,0 +1,234 @@
+{
+  "recorded_at": "2026-10-13",
+  "purpose": "development dependency inventory, not security clearance",
+  "packages": [
+    {
+      "name": "annotated-doc",
+      "version": "0.0.4",
+      "license_metadata": "MIT",
+      "license_validation": "operator review required"
+    },
+    {
+      "name": "annotated-types",
+      "version": "0.8.0",
+      "license_metadata": "MIT",
+      "license_validation": "operator review required"
+    },
+    {
+      "name": "anyio",
+      "version": "4.13.0",
+      "license_metadata": "MIT",
+      "license_validation": "operator review required"
+    },
+    {
+      "name": "argon2-cffi",
+      "version": "25.1.0",
+      "license_metadata": "MIT",
+      "license_validation": "operator review required"
+    },
+    {
+      "name": "argon2-cffi-bindings",
+      "version": "25.1.0",
+      "license_metadata": "MIT",
+      "license_validation": "operator review required"
+    },
+    {
+      "name": "attrs",
+      "version": "26.1.0",
+      "license_metadata": "MIT",
+      "license_validation": "operator review required"
+    },
+    {
+      "name": "beautifulsoup4",
+      "version": "4.14.3",
+      "license_metadata": "MIT License",
+      "license_validation": "operator review required"
+    },
+    {
+      "name": "certifi",
+      "version": "2026.5.20",
+      "license_metadata": "MPL-2.0",
+      "license_validation": "operator review required"
+    },
+    {
+      "name": "cffi",
+      "version": "2.0.0",
+      "license_metadata": "MIT",
+      "license_validation": "operator review required"
+    },
+    {
+      "name": "click",
+      "version": "8.1.8",
+      "license_metadata": "",
+      "license_validation": "operator review required"
+    },
+    {
+      "name": "fastapi",
+      "version": "0.128.2",
+      "license_metadata": "MIT",
+      "license_validation": "operator review required"
+    },
+    {
+      "name": "greenlet",
+      "version": "3.5.1",
+      "license_metadata": "MIT AND PSF-2.0",
+      "license_validation": "operator review required"
+    },
+    {
+      "name": "h11",
+      "version": "0.16.0",
+      "license_metadata": "MIT",
+      "license_validation": "operator review required"
+    },
+    {
+      "name": "httpcore",
+      "version": "1.0.9",
+      "license_metadata": "BSD-3-Clause",
+      "license_validation": "operator review required"
+    },
+    {
+      "name": "httpx",
+      "version": "0.28.1",
+      "license_metadata": "BSD-3-Clause",
+      "license_validation": "operator review required"
+    },
+    {
+      "name": "idna",
+      "version": "3.17",
+      "license_metadata": "BSD-3-Clause",
+      "license_validation": "operator review required"
+    },
+    {
+      "name": "iniconfig",
+      "version": "2.3.0",
+      "license_metadata": "MIT",
+      "license_validation": "operator review required"
+    },
+    {
+      "name": "jinja2",
+      "version": "3.1.6",
+      "license_metadata": "",
+      "license_validation": "operator review required"
+    },
+    {
+      "name": "jsonschema",
+      "version": "4.26.0",
+      "license_metadata": "MIT",
+      "license_validation": "operator review required"
+    },
+    {
+      "name": "jsonschema-specifications",
+      "version": "2025.9.1",
+      "license_metadata": "MIT",
+      "license_validation": "operator review required"
+    },
+    {
+      "name": "markupsafe",
+      "version": "3.0.3",
+      "license_metadata": "BSD-3-Clause",
+      "license_validation": "operator review required"
+    },
+    {
+      "name": "packaging",
+      "version": "25.0",
+      "license_metadata": "",
+      "license_validation": "operator review required"
+    },
+    {
+      "name": "playwright",
+      "version": "1.57.0",
+      "license_metadata": "Apache-2.0",
+      "license_validation": "operator review required"
+    },
+    {
+      "name": "pluggy",
+      "version": "1.6.0",
+      "license_metadata": "MIT",
+      "license_validation": "operator review required"
+    },
+    {
+      "name": "pycparser",
+      "version": "3.0",
+      "license_metadata": "BSD-3-Clause",
+      "license_validation": "operator review required"
+    },
+    {
+      "name": "pydantic",
+      "version": "2.13.5",
+      "license_metadata": "MIT",
+      "license_validation": "operator review required"
+    },
+    {
+      "name": "pydantic-core",
+      "version": "2.46.5",
+      "license_metadata": "MIT",
+      "license_validation": "operator review required"
+    },
+    {
+      "name": "pyee",
+      "version": "13.0.1",
+      "license_metadata": "MIT",
+      "license_validation": "operator review required"
+    },
+    {
+      "name": "pygments",
+      "version": "2.20.0",
+      "license_metadata": "BSD-2-Clause",
+      "license_validation": "operator review required"
+    },
+    {
+      "name": "pytest",
+      "version": "9.0.2",
+      "license_metadata": "MIT",
+      "license_validation": "operator review required"
+    },
+    {
+      "name": "referencing",
+      "version": "0.37.0",
+      "license_metadata": "MIT",
+      "license_validation": "operator review required"
+    },
+    {
+      "name": "rpds-py",
+      "version": "2026.5.1",
+      "license_metadata": "MIT",
+      "license_validation": "operator review required"
+    },
+    {
+      "name": "soupsieve",
+      "version": "2.8.4",
+      "license_metadata": "MIT",
+      "license_validation": "operator review required"
+    },
+    {
+      "name": "sqlalchemy",
+      "version": "2.0.50",
+      "license_metadata": "MIT",
+      "license_validation": "operator review required"
+    },
+    {
+      "name": "starlette",
+      "version": "0.50.0",
+      "license_metadata": "BSD-3-Clause",
+      "license_validation": "operator review required"
+    },
+    {
+      "name": "typing-extensions",
+      "version": "4.16.0",
+      "license_metadata": "PSF-2.0",
+      "license_validation": "operator review required"
+    },
+    {
+      "name": "typing-inspection",
+      "version": "0.4.4",
+      "license_metadata": "MIT",
+      "license_validation": "operator review required"
+    },
+    {
+      "name": "uvicorn",
+      "version": "0.48.0",
+      "license_metadata": "BSD-3-Clause",
+      "license_validation": "operator review required"
+    }
+  ]
+}

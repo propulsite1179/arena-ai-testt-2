@@ -1,0 +1,9 @@
+{
+  "project_copy": "/ABSOLUTE/PATH/TO/A/DISPOSABLE/COPY.rbxlx",
+  "steps": [
+    {
+      "tool": "get_studio_state",
+      "arguments": {}
+    }
+  ]
+}

@@ -1,0 +1,9 @@
+# Build on a dedicated Linux worker, never on an application function.
+FROM mcr.microsoft.com/playwright/python:v1.57.0-noble
+RUN pip install --no-cache-dir playwright==1.57.0 && useradd --uid 1000 --create-home runner
+WORKDIR /harness
+COPY gamedev/services/evaluator.py /harness/gamedev/services/evaluator.py
+COPY apps/web-benchmark-worker/sandbox_entry.py /harness/entry.py
+ENV PYTHONPATH=/harness GDB_INSIDE_SANDBOX=1 HOME=/tmp
+USER 1000:1000
+ENTRYPOINT ["python", "/harness/entry.py"]

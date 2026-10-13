@@ -1,0 +1,62 @@
+{
+  "recorded_at": "2026-10-13T09:39:57.797003+00:00",
+  "release": "0.1.0 research preview",
+  "python": "3.13.5",
+  "chromium": "Chromium 144.0.7559.96 built on Debian GNU/Linux 13 (trixie)",
+  "unit_api_operations": {
+    "tests": 138,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 10
+  },
+  "browser_components": {
+    "tests": 10,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "distinct_tests_passed": 138,
+  "browser_components_are_not_http_e2e": true,
+  "actual_http": {
+    "kind": "actual-http-end-to-end",
+    "http_api": "passed",
+    "browser": "skipped_by_browser_administrator_policy",
+    "checks": [
+      "actual HTTP: 9 public routes, protected admin and rejected CSRF-free mutation"
+    ],
+    "live_provider_calls": 0,
+    "limitation": "HTTP API tested; browser navigation blocked. No policy bypass or claim of browser network success."
+  },
+  "visual_views": [
+    "home-desktop",
+    "home-mobile",
+    "home-light",
+    "leaderboard-desktop",
+    "arena-desktop"
+  ],
+  "visual_overflows": 0,
+  "visual_page_errors": 0,
+  "syntax_and_routes": {
+    "matching_locale_keys": 274,
+    "sql_tables": 40,
+    "original_task_briefs": 14,
+    "main_localized_routes": 44,
+    "static_public_pages": 88,
+    "python_ast": true,
+    "javascript_syntax": true
+  },
+  "live_model_api_calls": 0,
+  "independent_ai_benchmark_results": 0,
+  "not_verified_locally": [
+    "native Roblox Studio",
+    "PostgreSQL server execution",
+    "Docker sandbox runtime",
+    "live supplier credentials",
+    "live Stripe checkout/webhooks",
+    "browser HTTP navigation (environment blocks it)",
+    "vulnerability audit",
+    "static type analysis",
+    "WCAG conformance certification",
+    "production deployment and backups"
+  ]
+}

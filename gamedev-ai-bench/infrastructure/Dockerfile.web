@@ -1,0 +1,11 @@
+FROM python:3.13-slim
+WORKDIR /app
+COPY requirements.txt requirements-postgres.txt ./
+RUN python -m pip install --no-cache-dir -r requirements-postgres.txt && useradd --uid 10001 --create-home bench && mkdir /data && chown bench:bench /data
+COPY --chown=bench:bench gamedev ./gamedev
+COPY --chown=bench:bench migrations ./migrations
+COPY --chown=bench:bench packages/test-fixtures ./packages/test-fixtures
+USER bench
+ENV DATA_DIR=/data PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
+EXPOSE 8000
+CMD ["python", "-m", "uvicorn", "gamedev.web.app:create_app", "--factory", "--host", "0.0.0.0", "--port", "8000", "--no-proxy-headers"]

@@ -1,0 +1,40 @@
+# Example deployment. Requires a real HTTPS proxy and pre-launch qualification.
+services:
+  database:
+    image: postgres:17
+    environment:
+      POSTGRES_DB: gamedev
+      POSTGRES_USER: bench
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set a strong random hex database password}
+    volumes: [postgres-data:/var/lib/postgresql/data]
+    healthcheck:
+      test: [CMD-SHELL, pg_isready -U bench -d gamedev]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+  web:
+    build:
+      context: ..
+      dockerfile: infrastructure/Dockerfile.web
+    environment:
+      APP_ENV: production
+      APP_ORIGIN: ${APP_ORIGIN:?Set the public HTTPS origin}
+      APP_SECRET: ${APP_SECRET:?Set a random application secret of at least 48 characters}
+      DATABASE_URL: postgresql+psycopg://bench:${POSTGRES_PASSWORD:?Set database password}@database:5432/gamedev
+      DATA_DIR: /data
+      ALLOW_REGISTRATION: 'false'
+      ENABLE_PAID_RUNS: 'false'
+    depends_on:
+      database:
+        condition: service_healthy
+    ports: ['127.0.0.1:8000:8000']
+    volumes: [evidence-data:/data]
+    read_only: true
+    tmpfs: [/tmp:rw,noexec,nosuid,size=64m]
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    restart: unless-stopped
+volumes:
+  postgres-data:
+  evidence-data:

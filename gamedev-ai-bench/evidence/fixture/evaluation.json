@@ -1,0 +1,91 @@
+{
+  "harness": "gdb-web-smoke/1.0.0",
+  "assertions": [
+    {
+      "id": "boot",
+      "outcome": "passed",
+      "weight": 1,
+      "blocking": true,
+      "observed": {
+        "component_loaded": true,
+        "http_status": null
+      }
+    },
+    {
+      "id": "canvas",
+      "outcome": "passed",
+      "weight": 1,
+      "blocking": false,
+      "observed": {
+        "width": 924,
+        "height": 481.609375,
+        "sample_colors": 124
+      }
+    },
+    {
+      "id": "start",
+      "outcome": "passed",
+      "weight": 1,
+      "blocking": true,
+      "observed": {}
+    },
+    {
+      "id": "keyboard",
+      "outcome": "passed",
+      "weight": 1,
+      "blocking": false,
+      "observed": {
+        "before_x": 240.0,
+        "after_x": 262.91,
+        "limitation": "Game-reported position, accompanied by screenshot; not an independent semantic gameplay oracle"
+      }
+    },
+    {
+      "id": "restart",
+      "outcome": "passed",
+      "weight": 1,
+      "blocking": false,
+      "observed": {}
+    },
+    {
+      "id": "mobile",
+      "outcome": "passed",
+      "weight": 1,
+      "blocking": false,
+      "observed": {
+        "viewport": "390x844"
+      }
+    },
+    {
+      "id": "touch",
+      "outcome": "passed",
+      "weight": 1,
+      "blocking": false,
+      "observed": {
+        "before_x": 240.0,
+        "after_x": 252.0,
+        "input": "pointer click; native touch tested separately in E2E"
+      }
+    },
+    {
+      "id": "runtime",
+      "outcome": "passed",
+      "weight": 1,
+      "blocking": true,
+      "observed": {
+        "page_errors": 0,
+        "observation_window": "This test only; not long-run stability"
+      }
+    }
+  ],
+  "metrics": {
+    "transport": "in-memory component rendering; HTTP navigation not exercised",
+    "duration_ms": 2292
+  },
+  "runtime_errors": [],
+  "fixture": true,
+  "limitations": [
+    "Contract-based smoke checks, not a complete game-quality score.",
+    "No FPS or human creativity metric is inferred."
+  ]
+}

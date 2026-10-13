@@ -1,0 +1,42 @@
+name: GameDev AI Bench checks
+on:
+  push:
+    branches: [main]
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: gamedev_ci
+          POSTGRES_PASSWORD: ephemeral-ci-only-password
+          POSTGRES_DB: gamedev_ci
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U gamedev_ci -d gamedev_ci"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Install dependencies
+        run: python3 -m pip install -r requirements-dev.txt -r requirements-postgres.txt
+      - run: python3 -m pytest -q
+      - run: python3 scripts/validate.py
+      - run: python3 scripts/build.py
+      - name: Test fresh PostgreSQL and concurrent leases
+        env:
+          POSTGRES_TEST_URL: postgresql+psycopg://gamedev_ci:ephemeral-ci-only-password@127.0.0.1:5432/gamedev_ci
+        run: python3 scripts/ci_postgres.py
+      - run: python3 -m playwright install --with-deps chromium
+      - name: Real Chromium components
+        env:
+          BROWSER_COMPONENT_TESTS: 'true'
+        run: python3 -m pytest tests/test_components.py -q
+      - name: Real HTTP browser journeys; no policy-skip flag
+        run: python3 scripts/e2e.py
